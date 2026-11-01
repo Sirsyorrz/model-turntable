@@ -1,6 +1,6 @@
 [package]
 name = "model-turntable"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 description = "Render turntable GIFs and videos of STL, OBJ, FBX and glTF models"
 license = "MIT"
