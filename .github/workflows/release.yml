@@ -1,0 +1,34 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  package:
+    uses: ./.github/workflows/package.yml
+    with:
+      version: ${{ github.ref_name }}
+
+  release:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: model-turntable ${{ github.ref_name }}
+          body: |
+            **Windows:** unzip and run `model-turntable.exe`. Unsigned, so SmartScreen warns: "More info" then "Run anyway".
+
+            **Linux:** the `.AppImage`, `chmod +x`, run. The tarball has the bare binary and a `.desktop` file.
+
+            Video formats need ffmpeg. If it isn't on your PATH the app offers to download it.
+          files: |
+            *.AppImage
+            *.tar.gz
+            *.zip

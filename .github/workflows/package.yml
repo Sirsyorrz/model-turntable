@@ -1,0 +1,77 @@
+name: package
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        default: dev
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux:
+    # Oldest supported runner, so the AppImage runs on older glibc too.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev libfuse2
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+
+      - name: AppImage
+        run: |
+          set -e
+          app=AppDir
+          install -Dm755 target/release/model-turntable $app/usr/bin/model-turntable
+          install -Dm644 packaging/model-turntable.desktop $app/model-turntable.desktop
+          install -Dm644 packaging/model-turntable.desktop $app/usr/share/applications/model-turntable.desktop
+          install -Dm644 assets/icon.png $app/model-turntable.png
+          install -Dm644 assets/icon.png $app/usr/share/icons/hicolor/256x256/apps/model-turntable.png
+          ln -s usr/bin/model-turntable $app/AppRun
+          curl -fsSLo appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool $app model-turntable-${{ inputs.version }}-x86_64.AppImage
+
+      - name: Tarball
+        run: |
+          set -e
+          d=model-turntable-${{ inputs.version }}-linux-x86_64
+          mkdir $d
+          cp target/release/model-turntable packaging/model-turntable.desktop LICENSE README.md $d/
+          cp assets/icon.png $d/model-turntable.png
+          tar czf $d.tar.gz $d
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux
+          path: |
+            *.AppImage
+            *.tar.gz
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+
+      - name: Zip
+        shell: pwsh
+        run: |
+          $d = "model-turntable-${{ inputs.version }}-windows-x86_64"
+          New-Item -ItemType Directory $d | Out-Null
+          Copy-Item target/release/model-turntable.exe, LICENSE, README.md $d
+          Compress-Archive $d "$d.zip"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows
+          path: "*.zip"
+          if-no-files-found: error

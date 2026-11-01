@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=model-turntable
+Comment=Render turntable GIFs and videos of 3D models
+Exec=model-turntable %f
+Icon=model-turntable
+Terminal=false
+Categories=Graphics;3DGraphics;
+MimeType=model/gltf-binary;model/gltf+json;model/stl;model/obj;application/vnd.ms-pki.stl;
+StartupWMClass=model-turntable
