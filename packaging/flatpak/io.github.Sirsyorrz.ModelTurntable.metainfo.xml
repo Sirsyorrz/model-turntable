@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.Sirsyorrz.ModelTurntable</id>
+  <name>model-turntable</name>
+  <summary>Render turntable GIFs and videos of 3D models</summary>
+  <developer id="io.github.sirsyorrz">
+    <name>Sirsyorrz</name>
+  </developer>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>Drop in a glTF, FBX, OBJ or STL model, pick a look and export a seamlessly looping turntable as GIF, MP4, WebM, ProRes, DNxHR, WebP, APNG or a PNG sequence.</p>
+  </description>
+  <launchable type="desktop-id">io.github.Sirsyorrz.ModelTurntable.desktop</launchable>
+  <url type="homepage">https://github.com/Sirsyorrz/model-turntable</url>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/Sirsyorrz/model-turntable/main/docs/screenshot.png</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+</component>

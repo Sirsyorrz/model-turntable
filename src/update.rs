@@ -177,6 +177,12 @@ fn check() -> Result<Option<Release>> {
 fn install_target() -> Result<PathBuf> {
     #[cfg(target_os = "linux")]
     {
+        // The sandbox can't write to /app, and the AppImage env var never leaks in.
+        if std::env::var_os("FLATPAK_ID").is_some() {
+            bail!(
+                "the Flatpak can't update itself, install the new .flatpak from the releases page"
+            );
+        }
         std::env::var_os("APPIMAGE")
             .map(PathBuf::from)
             .ok_or_else(|| anyhow!("only the AppImage can update itself"))

@@ -1,0 +1,36 @@
+# Repackages the release binary from `cargo build --release` rather than
+# building from source, so it ships the exact same build as the AppImage.
+id: io.github.Sirsyorrz.ModelTurntable
+runtime: org.freedesktop.Platform
+runtime-version: '26.08'
+sdk: org.freedesktop.Sdk
+command: model-turntable
+rename-desktop-file: model-turntable.desktop
+rename-icon: model-turntable
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # Update checks and the ffmpeg download.
+  - --share=network
+  # glTF and FBX files reference textures next to them, which the file
+  # chooser portal alone wouldn't expose.
+  - --filesystem=home
+modules:
+  - name: model-turntable
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 model-turntable /app/bin/model-turntable
+      - install -Dm644 model-turntable.desktop /app/share/applications/model-turntable.desktop
+      - install -Dm644 icon.png /app/share/icons/hicolor/256x256/apps/model-turntable.png
+      - install -Dm644 io.github.Sirsyorrz.ModelTurntable.metainfo.xml /app/share/metainfo/io.github.Sirsyorrz.ModelTurntable.metainfo.xml
+    sources:
+      - type: file
+        path: ../../target/release/model-turntable
+      - type: file
+        path: ../model-turntable.desktop
+      - type: file
+        path: ../../assets/icon.png
+      - type: file
+        path: io.github.Sirsyorrz.ModelTurntable.metainfo.xml

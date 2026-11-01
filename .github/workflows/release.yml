@@ -62,11 +62,14 @@ jobs:
 
             **Linux:** the `.AppImage`, `chmod +x`, run. The tarball has the bare binary and a `.desktop` file, but only the AppImage updates itself.
 
+            **Flatpak:** `flatpak install --user model-turntable-${{ github.ref_name }}-x86_64.flatpak`. Pulls the runtime from Flathub. Install newer releases the same way.
+
             Video formats need ffmpeg. If it isn't on your PATH the app offers to download it.
           files: |
             *.AppImage
             *.AppImage.sig
             *.tar.gz
+            *.flatpak
             *.exe
             *.exe.sig
             latest.json

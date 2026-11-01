@@ -44,7 +44,8 @@ pub fn run(initial: Option<PathBuf>) -> anyhow::Result<()> {
         .ok();
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("model-turntable")
-        .with_app_id("model-turntable")
+        // Wayland matches app_id to the .desktop file name, which Flatpak renames.
+        .with_app_id(std::env::var("FLATPAK_ID").unwrap_or_else(|_| "model-turntable".into()))
         .with_inner_size([1320.0, 840.0])
         .with_min_inner_size([920.0, 580.0]);
     if let Some(icon) = icon {

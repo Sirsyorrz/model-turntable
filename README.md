@@ -20,6 +20,7 @@ Download a release for your platform:
 
 - **Windows:** run the `.exe`. There's nothing to install.
 - **Linux:** `chmod +x` the `.AppImage` and run it. You can also use the tarball's bare binary.
+- **Flatpak:** `flatpak install --user model-turntable-*.flatpak`. The runtime comes from Flathub. It doesn't update itself, so install newer releases the same way.
 
 The app checks for new releases on startup and offers to update itself. You can also check from **Settings > Check for updates**. This works for the Windows `.exe` and the AppImage. The tarball and local builds don't update themselves.
 
