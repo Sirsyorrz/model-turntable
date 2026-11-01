@@ -592,7 +592,7 @@ impl App {
                     .color(FG),
             );
             ui.add_space(6.0);
-            if ui.button("Open…").on_hover_text("Ctrl+O").clicked() {
+            if ui.button("Open").on_hover_text("Ctrl+O").clicked() {
                 self.open_dialog();
             }
             let recent = self.p.recent.clone();
@@ -614,10 +614,10 @@ impl App {
                 });
             });
             ui.menu_button("Settings", |ui| {
-                if ui.button("Save settings…").clicked() {
+                if ui.button("Save settings").clicked() {
                     self.save_settings_dialog();
                 }
-                if ui.button("Load settings…").clicked() {
+                if ui.button("Load settings").clicked() {
                     self.load_settings_dialog();
                 }
                 ui.separator();
@@ -901,7 +901,7 @@ impl App {
         ui.add_space(10.0);
         if ui
             .add(
-                Button::new(RichText::new("Open model…").color(ACCENT))
+                Button::new(RichText::new("Open model").color(ACCENT))
                     .stroke(Stroke::new(1.0, ACCENT)),
             )
             .clicked()
