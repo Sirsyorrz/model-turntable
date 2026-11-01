@@ -54,6 +54,7 @@ pub fn run(initial: Option<PathBuf>) -> anyhow::Result<()> {
         viewport,
         renderer: eframe::Renderer::Wgpu,
         event_loop_builder: x11_for_drag_and_drop(),
+        wgpu_options: wgpu_options(),
         ..Default::default()
     };
     let restart = Arc::new(AtomicBool::new(false));
@@ -66,6 +67,23 @@ pub fn run(initial: Option<PathBuf>) -> anyhow::Result<()> {
     .map_err(|e| anyhow!("{e}"))?;
     update::relaunch_if_requested(&restart);
     Ok(())
+}
+
+/// egui requests `Limits::default()`, whose 256 MB buffer cap is too small for
+/// multi-million triangle scans, so ask for whatever the adapter supports.
+fn wgpu_options() -> egui_wgpu::WgpuConfiguration {
+    let mut config = egui_wgpu::WgpuConfiguration::default();
+    if let egui_wgpu::WgpuSetup::CreateNew(setup) = &mut config.wgpu_setup {
+        let fallback = setup.device_descriptor.clone();
+        setup.device_descriptor = Arc::new(move |adapter| {
+            let mut desc = fallback(adapter);
+            if adapter.get_info().backend != wgpu::Backend::Gl {
+                desc.required_limits = adapter.limits();
+            }
+            desc
+        });
+    }
+    config
 }
 
 /// winit has no drag-and-drop on Wayland, so prefer XWayland when it's
