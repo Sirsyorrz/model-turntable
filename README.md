@@ -14,8 +14,6 @@ Turntable GIFs and videos of 3D models. Drop in a model, pick a look, export.
 - Supersampled anti-aliasing, a soft ground shadow, transparent backgrounds and AgX/ACES tonemapping.
 - A CLI for batch rendering.
 
-Replaces [turntable-stl](https://github.com/Sirsyorrz/Turntable-STL).
-
 ## Install
 
 Download a release for your platform:
