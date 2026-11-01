@@ -4,7 +4,7 @@ Turntable GIFs and videos of 3D models. Drop in a model, pick a look, export.
 
 ![screenshot](docs/screenshot.png)
 
-<img src="docs/helmet.gif" width="300" align="right" alt="example GIF">
+<img src="docs/sword.gif" width="300" align="right" alt="example GIF">
 
 - Opens glTF/GLB, FBX, OBJ and STL, textures included.
 - Studio HDRI lighting in the style of Blender's Material Preview, with seven built-in environments. Also includes the classic light presets from turntable-stl and MatCaps.
@@ -80,7 +80,6 @@ The output format comes from the file extension: `.gif .mp4 .webm .mov` (ProRes,
 
 - HDRIs from [Poly Haven](https://polyhaven.com) (CC0): studio_small_09, brown_photostudio_02, lebombo, potsdamer_platz, forest_slope, venice_sunset, dikhololo_night.
 - [Inter](https://rsms.me/inter/) font (SIL OFL 1.1).
-- The example model is [Damaged Helmet](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/DamagedHelmet) by theblueturtle_ (CC BY 4.0).
 
 ## License
 
