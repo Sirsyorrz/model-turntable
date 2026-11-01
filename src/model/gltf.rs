@@ -12,7 +12,7 @@ use crate::settings::{Shading, UpAxis};
 
 pub fn load(path: &Path) -> Result<Model> {
     let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
-    let gltf::Gltf { document, blob } = gltf::Gltf::from_slice(&bytes).context("parsing glTF")?;
+    let gltf::Gltf { document, blob } = parse(&bytes)?;
     let base = path.parent().unwrap_or(Path::new("."));
     let buffers =
         gltf::import_buffers(&document, Some(base), blob).context("loading glTF buffers")?;
@@ -286,4 +286,23 @@ fn percent_decode(s: &str) -> String {
         i += 1;
     }
     String::from_utf8_lossy(&out).into_owned()
+}
+
+/// Godot (and others) write morph target accessors with neither a bufferView
+/// nor sparse data, meaning "all zeros". That's valid glTF but the gltf crate
+/// rejects it. We never read morph targets, so skip validation for that case only.
+fn parse(bytes: &[u8]) -> Result<gltf::Gltf> {
+    match gltf::Gltf::from_slice(bytes) {
+        Ok(g) => Ok(g),
+        Err(gltf::Error::Validation(errors))
+            if errors.iter().all(|(path, err)| {
+                matches!(err, gltf::json::validation::Error::Missing)
+                    && path.as_str().starts_with("accessors[")
+                    && path.as_str().ends_with("].bufferView")
+            }) =>
+        {
+            gltf::Gltf::from_slice_without_validation(bytes).context("parsing glTF")
+        }
+        Err(e) => Err(e).context("parsing glTF"),
+    }
 }

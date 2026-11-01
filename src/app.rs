@@ -52,6 +52,7 @@ pub fn run(initial: Option<PathBuf>) -> anyhow::Result<()> {
     let options = eframe::NativeOptions {
         viewport,
         renderer: eframe::Renderer::Wgpu,
+        event_loop_builder: x11_for_drag_and_drop(),
         ..Default::default()
     };
     eframe::run_native(
@@ -60,6 +61,24 @@ pub fn run(initial: Option<PathBuf>) -> anyhow::Result<()> {
         Box::new(move |cc| Ok(Box::new(App::new(cc, initial)?))),
     )
     .map_err(|e| anyhow!("{e}"))
+}
+
+/// winit has no drag-and-drop on Wayland, so prefer XWayland when it's
+/// available. `MT_WAYLAND=1` opts back into native Wayland.
+#[cfg(target_os = "linux")]
+fn x11_for_drag_and_drop() -> Option<eframe::EventLoopBuilderHook> {
+    if std::env::var_os("DISPLAY").is_none() || std::env::var_os("MT_WAYLAND").is_some() {
+        return None;
+    }
+    Some(Box::new(|builder| {
+        use winit::platform::x11::EventLoopBuilderExtX11;
+        builder.with_x11();
+    }))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn x11_for_drag_and_drop() -> Option<eframe::EventLoopBuilderHook> {
+    None
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -136,7 +155,6 @@ pub struct App {
     status: Option<Status>,
     hdri_thumbs: Vec<TextureHandle>,
     matcap_thumbs: Vec<TextureHandle>,
-    adapter: String,
     screenshot: Option<Screenshot>,
 }
 
@@ -158,11 +176,10 @@ impl App {
             .wgpu_render_state
             .clone()
             .ok_or("wgpu renderer unavailable")?;
-        let adapter = rs.adapter.get_info().name;
         let gpu = Gpu {
             device: rs.device.clone(),
             queue: rs.queue.clone(),
-            adapter_name: adapter.clone(),
+            adapter_name: rs.adapter.get_info().name,
         };
         let mut session = Session::new(Arc::new(Renderer::new(gpu)));
         let mut p: Persisted = cc
@@ -213,7 +230,6 @@ impl App {
             status: None,
             hdri_thumbs,
             matcap_thumbs,
-            adapter,
             screenshot: std::env::var_os("MT_SCREENSHOT").map(|p| Screenshot {
                 path: p.into(),
                 frames: 0,
@@ -737,9 +753,6 @@ impl App {
             if let Some(p) = reveal {
                 reveal_in_folder(&p);
             }
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(RichText::new(&self.adapter).size(FS_SM).color(FG_FAINT));
-            });
         });
     }
 
@@ -895,60 +908,6 @@ impl App {
         {
             self.open_dialog();
         }
-        if self.p.recent.is_empty() {
-            return;
-        }
-        ui.add_space(24.0);
-        let width = (view.width() * 0.8).min(520.0);
-        let recent = self.p.recent.clone();
-        ui.allocate_ui_with_layout(vec2(width, 0.0), Layout::top_down(Align::Min), |ui| {
-            ui.label(
-                RichText::new("RECENT")
-                    .size(FS_SM)
-                    .extra_letter_spacing(0.8)
-                    .color(FG_FAINT),
-            );
-            ui.add_space(2.0);
-            let line_y = ui.cursor().min.y;
-            ui.painter()
-                .hline(ui.max_rect().x_range(), line_y, Stroke::new(1.0, LINE));
-            ui.add_space(6.0);
-            for r in recent {
-                let (rect, resp) = ui.allocate_exact_size(vec2(width, 42.0), Sense::click());
-                if resp.hovered() {
-                    ui.painter().rect(
-                        rect,
-                        CornerRadius::same(RADIUS),
-                        ROW_HOVER,
-                        Stroke::new(1.0, LINE),
-                        StrokeKind::Inside,
-                    );
-                }
-                let exists = r.exists();
-                ui.painter().text(
-                    rect.min + vec2(10.0, 8.0),
-                    Align2::LEFT_TOP,
-                    file_name(&r),
-                    FontId::proportional(FS),
-                    if exists { FG } else { FG_FAINT },
-                );
-                ui.painter().text(
-                    rect.min + vec2(10.0, 25.0),
-                    Align2::LEFT_TOP,
-                    elide_left(
-                        &r.parent()
-                            .map(|p| p.display().to_string())
-                            .unwrap_or_default(),
-                        70,
-                    ),
-                    FontId::proportional(FS_SM),
-                    FG_FAINT,
-                );
-                if resp.clicked() && exists {
-                    self.open(r.clone());
-                }
-            }
-        });
     }
 
     fn draw_preview(&mut self, ui: &mut Ui, view: Rect) {
@@ -1895,15 +1854,6 @@ fn spaced(s: &str) -> String {
         .map(|c| c.to_string())
         .collect::<Vec<_>>()
         .join("\u{200A}")
-}
-
-fn elide_left(s: &str, max: usize) -> String {
-    let n = s.chars().count();
-    if n <= max {
-        return s.to_owned();
-    }
-    let tail: String = s.chars().skip(n - max + 1).collect();
-    format!("…{tail}")
 }
 
 fn wrap_degrees(v: f32) -> f32 {
