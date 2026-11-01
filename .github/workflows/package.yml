@@ -9,6 +9,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Only CI builds update themselves; see src/update.rs.
+  MT_UPDATER: "1"
 
 jobs:
   linux:
@@ -46,11 +48,21 @@ jobs:
           cp assets/icon.png $d/model-turntable.png
           tar czf $d.tar.gz $d
 
+      # Same key format as the Tauri apps, so the signature drops straight
+      # into latest.json.
+      - name: Sign
+        if: inputs.version != 'dev'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx --yes @tauri-apps/cli@2 signer sign model-turntable-${{ inputs.version }}-x86_64.AppImage
+
       - uses: actions/upload-artifact@v7
         with:
           name: linux
           path: |
             *.AppImage
+            *.AppImage.sig
             *.tar.gz
           if-no-files-found: error
 
@@ -61,17 +73,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release
+      - shell: pwsh
+        run: Copy-Item target/release/model-turntable.exe model-turntable-${{ inputs.version }}-windows-x86_64.exe
 
-      - name: Zip
-        shell: pwsh
-        run: |
-          $d = "model-turntable-${{ inputs.version }}-windows-x86_64"
-          New-Item -ItemType Directory $d | Out-Null
-          Copy-Item target/release/model-turntable.exe, LICENSE, README.md $d
-          Compress-Archive $d "$d.zip"
+      - name: Sign
+        if: inputs.version != 'dev'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx --yes @tauri-apps/cli@2 signer sign model-turntable-${{ inputs.version }}-windows-x86_64.exe
 
       - uses: actions/upload-artifact@v7
         with:
           name: windows
-          path: "*.zip"
+          path: |
+            *.exe
+            *.exe.sig
           if-no-files-found: error

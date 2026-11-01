@@ -9,6 +9,7 @@ mod render;
 mod session;
 mod settings;
 mod theme;
+mod update;
 
 use clap::Parser;
 

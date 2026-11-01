@@ -18,8 +18,10 @@ Turntable GIFs and videos of 3D models. Drop in a model, pick a look, export.
 
 Download a release for your platform:
 
-- **Windows:** unzip and run `model-turntable.exe`.
+- **Windows:** run the `.exe`. There's nothing to install.
 - **Linux:** `chmod +x` the `.AppImage` and run it. You can also use the tarball's bare binary.
+
+The app checks for new releases on startup and offers to update itself. You can also check from **Settings > Check for updates**. This works for the Windows `.exe` and the AppImage. The tarball and local builds don't update themselves.
 
 GIF, WebP, APNG and PNG export are built in. The video formats need [ffmpeg](https://ffmpeg.org). If ffmpeg isn't on your `PATH`, the app offers to download a copy for you.
 

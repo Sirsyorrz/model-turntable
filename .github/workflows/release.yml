@@ -5,8 +5,21 @@ on:
     tags: ["v*"]
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # A tag that disagrees with Cargo.toml would make every install see
+      # itself as outdated and update forever.
+      - name: Tag matches Cargo.toml
+        run: |
+          crate=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          [ "v$crate" = "${{ github.ref_name }}" ] || { echo "tag ${{ github.ref_name }} but Cargo.toml says $crate"; exit 1; }
+
   package:
+    needs: version
     uses: ./.github/workflows/package.yml
+    secrets: inherit
     with:
       version: ${{ github.ref_name }}
 
@@ -19,16 +32,41 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           merge-multiple: true
+
+      # What installed copies poll to find out an update exists.
+      - name: latest.json
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          base="https://github.com/$REPO/releases/download/$TAG"
+          appimage="model-turntable-$TAG-x86_64.AppImage"
+          exe="model-turntable-$TAG-windows-x86_64.exe"
+          jq -n \
+            --arg version "${TAG#v}" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg lin_url "$base/$appimage" --rawfile lin_sig "$appimage.sig" \
+            --arg win_url "$base/$exe" --rawfile win_sig "$exe.sig" \
+            '{version: $version, notes: "", pub_date: $date, platforms: {
+              "linux-x86_64": {url: $lin_url, signature: $lin_sig},
+              "windows-x86_64": {url: $win_url, signature: $win_sig}}}' > latest.json
+          cat latest.json
+
       - uses: softprops/action-gh-release@v2
         with:
           name: model-turntable ${{ github.ref_name }}
           body: |
-            **Windows:** unzip and run `model-turntable.exe`. Unsigned, so SmartScreen warns: "More info" then "Run anyway".
+            Installed copies will offer this automatically. Otherwise download below.
 
-            **Linux:** the `.AppImage`, `chmod +x`, run. The tarball has the bare binary and a `.desktop` file.
+            **Windows:** the `.exe`, no install needed. Unsigned, so SmartScreen warns: "More info" then "Run anyway".
+
+            **Linux:** the `.AppImage`, `chmod +x`, run. The tarball has the bare binary and a `.desktop` file, but only the AppImage updates itself.
 
             Video formats need ffmpeg. If it isn't on your PATH the app offers to download it.
           files: |
             *.AppImage
+            *.AppImage.sig
             *.tar.gz
-            *.zip
+            *.exe
+            *.exe.sig
+            latest.json

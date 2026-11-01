@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Arc,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{Receiver, channel},
     },
     thread::JoinHandle,
@@ -25,6 +25,7 @@ use crate::{
     session::Session,
     settings::*,
     theme::{self, *},
+    update::{self, Phase, Updater},
 };
 
 const LABEL_W: f32 = 92.0;
@@ -55,12 +56,16 @@ pub fn run(initial: Option<PathBuf>) -> anyhow::Result<()> {
         event_loop_builder: x11_for_drag_and_drop(),
         ..Default::default()
     };
+    let restart = Arc::new(AtomicBool::new(false));
+    let flag = restart.clone();
     eframe::run_native(
         "model-turntable",
         options,
-        Box::new(move |cc| Ok(Box::new(App::new(cc, initial)?))),
+        Box::new(move |cc| Ok(Box::new(App::new(cc, initial, flag)?))),
     )
-    .map_err(|e| anyhow!("{e}"))
+    .map_err(|e| anyhow!("{e}"))?;
+    update::relaunch_if_requested(&restart);
+    Ok(())
 }
 
 /// winit has no drag-and-drop on Wayland, so prefer XWayland when it's
@@ -156,6 +161,7 @@ pub struct App {
     hdri_thumbs: Vec<TextureHandle>,
     matcap_thumbs: Vec<TextureHandle>,
     screenshot: Option<Screenshot>,
+    updater: Updater,
 }
 
 /// `MT_SCREENSHOT=out.png` saves the window once the first model has rendered
@@ -170,6 +176,7 @@ impl App {
     fn new(
         cc: &eframe::CreationContext,
         initial: Option<PathBuf>,
+        restart: Arc<AtomicBool>,
     ) -> Result<App, Box<dyn std::error::Error + Send + Sync>> {
         theme::apply(&cc.egui_ctx);
         let rs = cc
@@ -235,7 +242,9 @@ impl App {
                 frames: 0,
                 done: Default::default(),
             }),
+            updater: Updater::new(cc.egui_ctx.clone(), restart),
         };
+        app.updater.look(false);
         if let Some(path) = initial {
             app.open(path);
         }
@@ -556,6 +565,93 @@ fn bar_frame(margin: Margin) -> Frame {
 }
 
 impl App {
+    /// Bottom-right nudge, silent until there is something to say.
+    fn update_toast(&self, ctx: &egui::Context, view: Rect) {
+        let phase = self.updater.phase();
+        if matches!(phase, Phase::Idle | Phase::Checking) {
+            return;
+        }
+        let u = &self.updater;
+        egui::Area::new(egui::Id::unique("update-toast"))
+            .order(egui::Order::Foreground)
+            .pivot(Align2::RIGHT_BOTTOM)
+            .fixed_pos(view.right_bottom() - vec2(12.0, 12.0))
+            .show(ctx, |ui| {
+                Frame::new()
+                    .fill(PANEL_2)
+                    .stroke(Stroke::new(1.0, LINE))
+                    .corner_radius(CornerRadius::same(RADIUS))
+                    .inner_margin(Margin::symmetric(12, 8))
+                    .shadow(egui::Shadow {
+                        offset: [0, 8],
+                        blur: 24,
+                        spread: 0,
+                        color: Color32::from_black_alpha(115),
+                    })
+                    .show(ui, |ui| {
+                        ui.spacing_mut().item_spacing.y = 8.0;
+                        match phase {
+                            Phase::Found(r) => {
+                                ui.label(
+                                    RichText::new(format!(
+                                        "model-turntable {} is available",
+                                        r.version
+                                    ))
+                                    .family(semibold())
+                                    .color(FG),
+                                );
+                                ui.horizontal(|ui| {
+                                    if accent_button(ui, "Update").clicked() {
+                                        u.install();
+                                    }
+                                    if link_button(ui, "Later").clicked() {
+                                        u.dismiss();
+                                    }
+                                });
+                            }
+                            Phase::Downloading { done, total } => {
+                                let frac = if total > 0 {
+                                    done as f32 / total as f32
+                                } else {
+                                    0.0
+                                };
+                                let pct = if total > 0 {
+                                    format!(" {:.0}%", frac * 100.0)
+                                } else {
+                                    String::new()
+                                };
+                                ui.label(
+                                    RichText::new(format!("Downloading update{pct}")).color(FG),
+                                );
+                                progress_bar(ui, 260.0, frac);
+                            }
+                            Phase::Ready => {
+                                ui.label(
+                                    RichText::new("Update installed")
+                                        .family(semibold())
+                                        .color(FG),
+                                );
+                                ui.horizontal(|ui| {
+                                    if accent_button(ui, "Restart now").clicked() {
+                                        u.restart();
+                                    }
+                                    if link_button(ui, "Later").clicked() {
+                                        u.dismiss();
+                                    }
+                                });
+                            }
+                            Phase::Error(text) => {
+                                ui.label(RichText::new(text).color(FG_DIM));
+                                if link_button(ui, "Dismiss").clicked() {
+                                    u.dismiss();
+                                }
+                            }
+                            Phase::Idle | Phase::Checking => {}
+                        }
+                    });
+            });
+    }
+
     fn screenshot_hook(&mut self, ctx: &egui::Context) {
         let Some(shot) = &mut self.screenshot else {
             return;
@@ -624,6 +720,15 @@ impl App {
                 if ui.button("Reset to defaults").clicked() {
                     self.p.settings = Settings::default();
                 }
+                ui.separator();
+                if ui.button("Check for updates").clicked() {
+                    self.updater.look(true);
+                }
+                ui.label(
+                    RichText::new(format!("model-turntable {}", update::VERSION))
+                        .size(FS_SM)
+                        .color(FG_FAINT),
+                );
             });
             ui.add_space(8.0);
             if let Some(info) = &self.info {
@@ -841,6 +946,7 @@ impl App {
             Stroke::new(1.0, LINE),
         );
         self.transport(&mut tui, transport);
+        self.update_toast(ui.ctx(), view);
     }
 
     fn transport(&mut self, ui: &mut Ui, rect: Rect) {
@@ -1614,6 +1720,14 @@ fn segmented<T: PartialEq + Copy>(ui: &mut Ui, value: &mut T, options: &[(T, &st
         }
     });
     changed
+}
+
+fn accent_button(ui: &mut Ui, label: &str) -> egui::Response {
+    ui.add(Button::new(RichText::new(label).color(ACCENT)).stroke(Stroke::new(1.0, ACCENT)))
+}
+
+fn link_button(ui: &mut Ui, label: &str) -> egui::Response {
+    ui.add(Button::new(RichText::new(label).underline().color(FG_DIM)).frame(false))
 }
 
 fn small_button(ui: &mut Ui, label: &str) -> egui::Response {
