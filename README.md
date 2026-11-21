@@ -69,13 +69,6 @@ model-turntable list
 
 The output format comes from the file extension: `.gif .mp4 .webm .mov` (ProRes, or DNxHR with `--dnxhr`), `.webp .png` (APNG). Run `model-turntable render --help` for every flag.
 
-## Notes
-
-- The model shows a static pose. Animations and skinning are ignored, so pose the model in Blender and export it if you want something else.
-- glTF is the most reliable format. For FBX, embedded textures or textures next to the file are found automatically.
-- STL files are assumed to be Z-up, which is the convention for 3D printing. Most other formats are Y-up. If a model comes out lying down, use **Up axis** or the rotate buttons.
-- GIF alpha is on/off only. A transparent GIF blends its soft edges into the matte colour.
-- Free DaVinci Resolve on Linux can't decode H.264. Use ProRes or DNxHR for footage you plan to edit there.
 
 ## Credits
 
